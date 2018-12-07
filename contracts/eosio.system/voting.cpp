@@ -76,6 +76,7 @@ namespace eosiosystem {
       auto idx = _producers.get_index<N(prototalvote)>();
 
       std::vector< std::pair<eosio::producer_key,uint16_t> > top_producers;
+      
       top_producers.reserve(23);
 
       for ( auto it = idx.cbegin(); it != idx.cend() && top_producers.size() < 23 && 0 < it->total_votes && it->active(); ++it ) {

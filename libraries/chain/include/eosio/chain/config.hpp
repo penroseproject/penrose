@@ -39,8 +39,8 @@ const static uint64_t owner_name  = N(owner);
 const static uint64_t eosio_any_name = N(eosio.any);
 const static uint64_t eosio_code_name = N(eosio.code);
 
-const static int      block_interval_ms = 500;
-// const static int      block_interval_ms = 6000; // 修改出块时间为6s
+// const static int      block_interval_ms = 500;
+const static int      block_interval_ms = 6000; // 修改出块时间为6s
 const static int      block_interval_us = block_interval_ms*1000;
 const static uint64_t block_timestamp_epoch = 946684800000ll; // epoch is year 2000.
 
@@ -100,8 +100,8 @@ const static uint32_t   default_abi_serializer_max_time_ms = 15*1000; ///< defau
 /**
  *  The number of sequential blocks produced by a single producer
  */
-const static int producer_repetitions = 6; // 出块个数
-const static int max_producers = 125;
+const static int producer_repetitions = 12; // 出块个数
+const static int max_producers = 23;
 
 const static size_t maximum_tracked_dpos_confirmations = 1024;     ///<
 static_assert(maximum_tracked_dpos_confirmations >= ((max_producers * 2 / 3) + 1) * producer_repetitions, "Settings never allow for DPOS irreversibility" );
