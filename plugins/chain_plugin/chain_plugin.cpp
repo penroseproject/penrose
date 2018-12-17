@@ -1493,15 +1493,18 @@ void read_write::push_block(const read_write::push_block_params& params, next_fu
    } CATCH_AND_CALL(next);
 }
 
+// 调用流程 push_transactions -> push_recurse -> push_transaction
 void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
 
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(this, abi_serializer_max_time);
       try {
+         // 这里在使用 packed_transaction 解包
          abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer_max_time);
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
+      // 这里调用 incoming::methods::transaction_async 函数
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, [this, next](const fc::static_variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void{
          if (result.contains<fc::exception_ptr>()) {
             next(result.get<fc::exception_ptr>());

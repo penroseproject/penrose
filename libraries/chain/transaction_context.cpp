@@ -282,13 +282,15 @@ namespace bacc = boost::accumulators;
       init( initial_net_usage);
    }
 
-   void transaction_context::init_for_input_trx( uint64_t packed_trx_unprunable_size,
-                                                 uint64_t packed_trx_prunable_size,
-                                                 uint32_t num_signatures,
-                                                 bool skip_recording )
+   void transaction_context::init_for_input_trx( uint64_t packed_trx_unprunable_size, // 这个是指trx打包后完整的大小
+                                                 uint64_t packed_trx_prunable_size, // 这个指trx额外信息的大小
+                                                 uint32_t num_signatures, // 这个参数没用上
+                                                 bool skip_recording ) // 是否要跳过记录
    {
+      // 根据cfg和trx初始化资源
       const auto& cfg = control.get_global_properties().configuration;
 
+      // 利用packed_trx_unprunable_size和packed_trx_prunable_size 计算net资源消耗
       uint64_t discounted_size_for_pruned_data = packed_trx_prunable_size;
       if( cfg.context_free_discount_net_usage_den > 0
           && cfg.context_free_discount_net_usage_num < cfg.context_free_discount_net_usage_den )
@@ -302,6 +304,7 @@ namespace bacc = boost::accumulators;
                                     + packed_trx_unprunable_size + discounted_size_for_pruned_data;
 
 
+      // 对于delay trx需要额外的net资源
       if( trx.delay_sec.value > 0 ) {
           // If delayed, also charge ahead of time for the additional net usage needed to retire the delayed transaction
           // whether that be by successfully executing, soft failure, hard failure, or expiration.
@@ -309,6 +312,7 @@ namespace bacc = boost::accumulators;
                                + static_cast<uint64_t>(config::transaction_id_net_usage);
       }
 
+      // 初始化一些信息
       published = control.pending_block_time();
       is_input = true;
       if (!control.skip_trx_checks()) {
@@ -316,8 +320,9 @@ namespace bacc = boost::accumulators;
          control.validate_tapos(trx);
          control.validate_referenced_accounts(trx);
       }
-      init( initial_net_usage);
+      init( initial_net_usage); // 这里调用init函数， 在这个函数中会处理cpu资源和ram资源
       if (!skip_recording)
+         // 将trx添加入记录中
          record_transaction( id, trx.expiration ); /// checks for dupes
    }
 
@@ -332,6 +337,7 @@ namespace bacc = boost::accumulators;
    void transaction_context::exec() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
+      // 调用`dispatch_action`，这里并没有对上下文无关trx进行特别的操作，只是参数不同
       if( apply_context_free ) {
          for( const auto& act : trx.context_free_actions ) {
             trace->action_traces.emplace_back();
@@ -345,10 +351,12 @@ namespace bacc = boost::accumulators;
             dispatch_action( trace->action_traces.back(), act );
          }
       } else {
+         // 对于延迟交易，这里特别处理
          schedule_transaction();
       }
    }
 
+   // 这里主要是处理资源消耗
    void transaction_context::finalize() {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
@@ -576,6 +584,7 @@ namespace bacc = boost::accumulators;
    }
 
    void transaction_context::schedule_transaction() {
+      // 因为交易延迟执行，会消耗额外的net和ram资源
       // Charge ahead of time for the additional net usage needed to retire the delayed transaction
       // whether that be by successfully executing, soft failure, hard failure, or expiration.
       if( trx.delay_sec.value == 0 ) { // Do not double bill. Only charge if we have not already charged for the delay.
@@ -586,6 +595,7 @@ namespace bacc = boost::accumulators;
 
       auto first_auth = trx.first_authorizor();
 
+      // 将延迟交易写入节点运行时状态数据库中，到时会从这里查找出来执行
       uint32_t trx_size = 0;
       const auto& cgto = control.mutable_db().create<generated_transaction_object>( [&]( auto& gto ) {
         gto.trx_id      = id;
@@ -598,6 +608,7 @@ namespace bacc = boost::accumulators;
         trx_size = gto.set( trx );
       });
 
+      // 因为要写内存记录，所以也消耗了一定的ram
       add_ram_usage( cgto.payer, (config::billable_size_v<generated_transaction_object> + trx_size) );
    }
 

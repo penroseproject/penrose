@@ -349,6 +349,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          auto block_time = chain.pending_block_state()->header.timestamp.to_time_point();
 
+         // 返回结果的回调
          auto send_response = [this, &trx, &chain, &next](const fc::static_variant<fc::exception_ptr, transaction_trace_ptr>& response) {
             next(response);
             if (response.contains<fc::exception_ptr>()) {
@@ -379,16 +380,19 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          };
 
          auto id = trx->id();
+         // 超时时间检查
          if( fc::time_point(trx->expiration()) < block_time ) {
             send_response(std::static_pointer_cast<fc::exception>(std::make_shared<expired_tx_exception>(FC_LOG_MESSAGE(error, "expired transaction ${id}", ("id", id)) )));
             return;
          }
 
+         // 检查是否是已处理过的trx
          if( chain.is_known_unexpired_transaction(id) ) {
             send_response(std::static_pointer_cast<fc::exception>(std::make_shared<tx_duplicate>(FC_LOG_MESSAGE(error, "duplicate transaction ${id}", ("id", id)) )));
             return;
          }
 
+         // 看看是否超过最大的执行时间了
          auto deadline = fc::time_point::now() + fc::milliseconds(_max_transaction_time_ms);
          bool deadline_is_subjective = false;
          if (_max_transaction_time_ms < 0 || (_pending_block_mode == pending_block_mode::producing && block_time < deadline) ) {
@@ -397,6 +401,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          try {
+            // 这里直接调用`push_transaction`来执行trx
             auto trace = chain.push_transaction(std::make_shared<transaction_metadata>(*trx), deadline);
             if (trace->except) {
                if (failure_is_subjective(*trace->except, deadline_is_subjective)) {

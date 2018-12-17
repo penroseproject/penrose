@@ -9,6 +9,7 @@
 
 namespace eosio { namespace chain {
 
+   // 权限结构
    struct permission_level {
       account_name    actor;
       permission_name permission;
@@ -60,11 +61,13 @@ namespace eosio { namespace chain {
    struct action {
       account_name               account;
       action_name                name;
+      // 执行所需的权限
       vector<permission_level>   authorization;
       bytes                      data;
 
       action(){}
 
+      // 打包成二进制
       template<typename T, std::enable_if_t<std::is_base_of<bytes, T>::value, int> = 1>
       action( vector<permission_level> auth, const T& value ) {
          account     = T::get_account();

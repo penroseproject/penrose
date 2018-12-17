@@ -15,14 +15,14 @@ namespace eosio { namespace chain {
  */
 class transaction_metadata {
    public:
-      transaction_id_type                                        id;
-      transaction_id_type                                        signed_id;
+      transaction_id_type                                        id; // trx ID
+      transaction_id_type                                        signed_id; // signed trx ID
       signed_transaction                                         trx;
       packed_transaction                                         packed_trx;
       optional<pair<chain_id_type, flat_set<public_key_type>>>   signing_keys;
-      bool                                                       accepted = false;
-      bool                                                       implicit = false;
-      bool                                                       scheduled = false;
+      bool                                                       accepted = false; // 标注是否调用了accepted信号，确保只调用一次
+      bool                                                       implicit = false; // 是否忽略检查
+      bool                                                       scheduled = false; // 是否是延迟trx
 
       explicit transaction_metadata( const signed_transaction& t, packed_transaction::compression_type c = packed_transaction::none )
       :trx(t),packed_trx(t, c) {

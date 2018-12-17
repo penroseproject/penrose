@@ -28,15 +28,16 @@ namespace eosio { namespace chain {
     *  region.
     */
    struct transaction_header {
-      time_point_sec         expiration;   ///< the time at which a transaction expires
-      uint16_t               ref_block_num       = 0U; ///< specifies a block num in the last 2^16 blocks.
-      uint32_t               ref_block_prefix    = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
-      fc::unsigned_int       max_net_usage_words = 0UL; /// upper limit on total network bandwidth (in 8 byte words) billed for this transaction
-      uint8_t                max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
-      fc::unsigned_int       delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
+      time_point_sec         expiration;   ///< trx超时时间 the time at which a transaction expires
+      uint16_t               ref_block_num       = 0U; ///< 包含trx的block num 注意这个值是后2^16个块中 specifies a block num in the last 2^16 blocks.
+      uint32_t               ref_block_prefix    = 0UL; ///< blockid的低32位 specifies the lower 32 bits of the blockid at get_ref_blocknum
+      fc::unsigned_int       max_net_usage_words = 0UL; /// 网络资源上限 upper limit on total network bandwidth (in 8 byte words) billed for this transaction
+      uint8_t                max_cpu_usage_ms    = 0; /// cpu资源上限 upper limit on the total CPU time billed for this transaction
+      fc::unsigned_int       delay_sec           = 0UL; /// 延迟交易的延迟时间 number of seconds to delay this transaction for during which it may be canceled.
 
       /**
        * @return the absolute block number given the relative ref_block_num
+       * 计算ref_block_num
        */
       block_num_type get_ref_blocknum( block_num_type head_blocknum )const {
          return ((head_blocknum/0xffff)*0xffff) + head_blocknum%0xffff;
@@ -50,12 +51,16 @@ namespace eosio { namespace chain {
     *  A transaction consits of a set of messages which must all be applied or
     *  all are rejected. These messages have access to data within the given
     *  read and write scopes.
+    *  在EOS中一个交易中 action要么全部执行，要么都不执行
     */
    struct transaction : public transaction_header {
       vector<action>         context_free_actions;
       vector<action>         actions;
       extensions_type        transaction_extensions;
 
+      // asset                  fee; // @TODO penrose增加的手续费，在客户端push trx时需要写入
+
+      // 获取trx id
       transaction_id_type        id()const;
       digest_type                sig_digest( const chain_id_type& chain_id, const vector<bytes>& cfd = vector<bytes>() )const;
       flat_set<public_key_type>  get_signature_keys( const vector<signature_type>& signatures,
@@ -87,9 +92,10 @@ namespace eosio { namespace chain {
       {
       }
 
-      vector<signature_type>    signatures;
-      vector<bytes>             context_free_data; ///< for each context-free action, there is an entry here
+      vector<signature_type>    signatures; // 签名
+      vector<bytes>             context_free_data; ///< 上下文无关的action所使用的数据 for each context-free action, there is an entry here
 
+      // 签名
       const signature_type&     sign(const private_key_type& key, const chain_id_type& chain_id);
       signature_type            sign(const private_key_type& key, const chain_id_type& chain_id)const;
       flat_set<public_key_type> get_signature_keys( const chain_id_type& chain_id, bool allow_duplicate_keys = false, bool use_cache = true )const;

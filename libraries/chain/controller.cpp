@@ -976,24 +976,38 @@ struct controller_impl {
                                            uint32_t billed_cpu_time_us,
                                            bool explicit_billed_cpu_time = false )
    {
+      // deadline必须不为空
+      // deadline是trx执行时间的一个大上限，为了防止某些trx运行时间过长导致出块失败等问题，
+      // 这里必须有一个严格的上限，一旦超过上限，交易会立即失败。
       EOS_ASSERT(deadline != fc::time_point(), transaction_exception, "deadline cannot be uninitialized");
 
-      transaction_trace_ptr trace;
+      // @TODO 在penrose中，为了安全性，对于特定一些交易进行了额外的验证，主要是考虑到，系统会将执行错误的交易写入区块
+      // 此时就要先验证下交易内容，特别是大小上有没有超出限制，否则将会带来安全问题。
+      // check_action(trx->trx.actions);
+
+
+      transaction_trace_ptr trace; // trace主要用来保存执行中的一些错误信息
       try {
+         // trx_context是执行trx的上下文状态
          transaction_context trx_context(self, trx->trx, trx->id);
          if ((bool)subjective_cpu_leeway && pending->_block_status == controller::block_status::incomplete) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
+
+         // 设置数据
          trx_context.deadline = deadline;
          trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trace = trx_context.trace;
          try {
-            if( trx->implicit ) {
+            if( trx->implicit ) { // 如果是implicit的就没有必要做下面的一些检查和记录，这里的检查主要是资源方面的
                trx_context.init_for_implicit_trx();
                trx_context.can_subjectively_fail = false;
             } else {
+               // 如果是重放并且不是重放过程中接到的新交易，则不去使用`record_transaction`记录
                bool skip_recording = replay_head_time && (time_point(trx->trx.expiration) <= *replay_head_time);
+
+               // 一些trx_context的初始化操作
                trx_context.init_for_input_trx( trx->packed_trx.get_unprunable_size(),
                                                trx->packed_trx.get_prunable_size(),
                                                trx->trx.signatures.size(),
@@ -1008,6 +1022,7 @@ struct controller_impl {
             trx_context.delay = fc::seconds(trx->trx.delay_sec);
 
             if( !self.skip_auth_check() && !trx->implicit ) {
+               // 检测交易所需要的权限
                authorization.check_authorization(
                        trx->trx.actions,
                        trx->recover_keys( chain_id ),
@@ -1019,18 +1034,23 @@ struct controller_impl {
                        false
                );
             }
+
+            // 执行，注意这时trx_context包括所有信息和状态
             trx_context.exec();
             trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
             auto restore = make_block_restore_point();
 
             if (!trx->implicit) {
+               // 如果是非implicit的交易，则需要进入区块。
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
                trace->receipt = push_receipt(trx->packed_trx, s, trx_context.billed_cpu_time_us, trace->net_usage);
                pending->_pending_block_state->trxs.emplace_back(trx);
             } else {
+               // 注意，这里implicit类的交易是不会进入区块的，只会计入资源消耗
+               // 因为这类的trx无条件运行，所以不需要另行记录。
                transaction_receipt_header r;
                r.status = transaction_receipt::executed;
                r.cpu_usage_us = trx_context.billed_cpu_time_us;
@@ -1038,14 +1058,17 @@ struct controller_impl {
                trace->receipt = r;
             }
 
+            // 这里会将执行过的action写入待出块状态的_actions之中
             fc::move_append(pending->_actions, move(trx_context.executed));
 
             // call the accept signal but only once for this transaction
+            // 为这个交易调用accept信号，保证只调用一次
             if (!trx->accepted) {
                trx->accepted = true;
                emit( self.accepted_transaction, trx);
             }
 
+            // 触发applied_transaction信号
             emit(self.applied_transaction, trace);
 
 
@@ -1057,6 +1080,7 @@ struct controller_impl {
                trx_context.squash();
             }
 
+            // implicit的trx压根没有在unapplied_transactions中
             if (!trx->implicit) {
                unapplied_transactions.erase( trx->signed_id );
             }
@@ -1066,6 +1090,8 @@ struct controller_impl {
             trace->except_ptr = std::current_exception();
          }
 
+         // 注意这里，如果成功的话上面就返回了这里是失败的情况
+         // failure_is_subjective 表明
          if (!failure_is_subjective(*trace->except)) {
             unapplied_transactions.erase( trx->signed_id );
          }
@@ -1131,11 +1157,11 @@ struct controller_impl {
 
          try {
             auto onbtrx = std::make_shared<transaction_metadata>( get_on_block_transaction() );
-            onbtrx->implicit = true;
+            onbtrx->implicit = true; // on_block trx 会被无条件接受
             auto reset_in_trx_requiring_checks = fc::make_scoped_exit([old_value=in_trx_requiring_checks,this](){
                   in_trx_requiring_checks = old_value;
                });
-            in_trx_requiring_checks = true;
+            in_trx_requiring_checks = true; // 修改in_trx_requiring_checks变量达到不将trx写入区块，一些系统的trx没有必要写入区块。
             push_transaction( onbtrx, fc::time_point::maximum(), self.get_global_properties().configuration.min_transaction_cpu_usage, true );
          } catch( const boost::interprocess::bad_alloc& e  ) {
             elog( "on block transaction failed due to a bad allocation" );
