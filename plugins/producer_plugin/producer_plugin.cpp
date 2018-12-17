@@ -445,10 +445,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       enum class start_block_result {
-         succeeded,
-         failed,
-         waiting,
-         exhausted
+         succeeded, // 出块成功
+         failed, // 出块失败
+         waiting, // 需要等待
+         exhausted // 出块繁忙
       };
 
       start_block_result start_block(bool &last_block);
@@ -743,6 +743,7 @@ void producer_plugin::plugin_startup()
       }
    }
 
+   // 这里启动出块循环，在循环中通过回调schedule_production_loop的形式loop
    my->schedule_production_loop();
 
    ilog("producer plugin:  plugin_startup() end");
@@ -1009,6 +1010,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
    const fc::time_point now = fc::time_point::now();
    const fc::time_point block_time = calculate_pending_block_time();
 
+   // 默认是producing，即正常出块
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
@@ -1020,6 +1022,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
 
    // If the next block production opportunity is in the present or future, we're synced.
    if( !_production_enabled ) {
+      // 对应not_synced，当前没有同步完成
       _pending_block_mode = pending_block_mode::speculating;
    } else if( _producers.find(scheduled_producer.producer_name) == _producers.end()) {
       _pending_block_mode = pending_block_mode::speculating;
@@ -1047,6 +1050,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
       }
    }
 
+   // 在出块时有可能还在进行同步区块，所以这里首先有个判定，如果当前最高区块的时间和当前时间差距太大（超过5秒），就会认为还在同步区块，这时会等一段时间再出
    if (_pending_block_mode == pending_block_mode::speculating) {
       auto head_block_age = now - chain.head_block_time();
       if (head_block_age > fc::seconds(5))
@@ -1086,6 +1090,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
       // attempt to play persisted transactions first
       bool exhausted = false;
 
+      // 这里处理持久化交易, 所有过期的交易会被忽略.
       // remove all persisted transactions that have now expired
       auto& persisted_by_id = _persistent_transactions.get<by_id>();
       auto& persisted_by_expiry = _persistent_transactions.get<by_expiry>();
@@ -1129,18 +1134,26 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                auto unapplied_trxs = chain.get_unapplied_transactions();
                apply_trxs.reserve(unapplied_trxs.size());
 
+               // 这个函数判断要执行trx的类型
                auto calculate_transaction_category = [&](const transaction_metadata_ptr& trx) {
                   if (trx->packed_trx.expiration() < pbs->header.timestamp.to_time_point()) {
+                     // 已经超时,会被忽略
                      return tx_category::EXPIRED;
                   } else if (persisted_by_id.find(trx->id) != persisted_by_id.end()) {
+                     // 持久化交易,会执行
                      return tx_category::PERSISTED;
                   } else {
+                     // 常规交易
                      return tx_category::UNEXPIRED_UNPERSISTED;
                   }
                };
 
                for (auto& trx: unapplied_trxs) {
                   auto category = calculate_transaction_category(trx);
+
+                  // 一个交易被执行条件:
+                  //   1. 没有过期
+                  //   2. 当前节点出块 或者 当前节点不出块,但交易是持久交易
                   if (category == tx_category::EXPIRED || (category == tx_category::UNEXPIRED_UNPERSISTED && _producers.empty())) {
                      if (!_producers.empty()) {
                         fc_dlog(_trx_trace_log, "[TRX_TRACE] Node with producers configured is dropping an EXPIRED transaction that was PREVIOUSLY ACCEPTED : ${txid}",
@@ -1159,6 +1172,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                int num_processed = 0;
 
                for (const auto& trx: apply_trxs) {
+                  // 判断是否超出了最大的执行时间,注意在EOS中每个块的cpu执行时间是有上限的.
                   if (block_time <= fc::time_point::now()) exhausted = true;
                   if (exhausted) {
                      break;
@@ -1167,6 +1181,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                   num_processed++;
 
                   try {
+                     // 刷新时间记录
                      auto deadline = fc::time_point::now() + fc::milliseconds(_max_transaction_time_ms);
                      bool deadline_is_subjective = false;
                      if (_max_transaction_time_ms < 0 || (_pending_block_mode == pending_block_mode::producing && block_time < deadline)) {
@@ -1174,9 +1189,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                         deadline = block_time;
                      }
 
+                     // 执行交易
                      auto trace = chain.push_transaction(trx, deadline);
                      if (trace->except) {
                         if (failure_is_subjective(*trace->except, deadline_is_subjective)) {
+                           // 根据trx执行来判断是否超出了最大的执行时间
                            exhausted = true;
                         } else {
                            // this failed our configured maximum transaction time, we don't want to replay it
@@ -1201,6 +1218,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
          }
 
          if (_pending_block_mode == pending_block_mode::producing) {
+            // 整理_blacklisted_transactions, 如果已经超时,则删去交易(此时肯定是执行不了了)
             auto& blacklist_by_id = _blacklisted_transactions.get<by_id>();
             auto& blacklist_by_expiry = _blacklisted_transactions.get<by_expiry>();
             auto now = fc::time_point::now();
@@ -1218,6 +1236,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                       ("expired", num_expired));
             }
 
+            // 执行延迟交易
             auto scheduled_trxs = chain.get_scheduled_transactions();
             if (!scheduled_trxs.empty()) {
                int num_applied = 0;
@@ -1233,6 +1252,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                   num_processed++;
 
                   // configurable ratio of incoming txns vs deferred txns
+                  // 这是一个新近交易和延迟交易执行的比例,
+                  // 注意当trx及其多时,需要平衡两种交易的执行时间
                   while (_incoming_trx_weight >= 1.0 && orig_pending_txn_size && _pending_incoming_transactions.size()) {
                      auto e = _pending_incoming_transactions.front();
                      _pending_incoming_transactions.pop_front();
@@ -1246,6 +1267,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block(bool 
                      break;
                   }
 
+                  // 如果之前执行出错过,就不执行了
                   if (blacklist_by_id.find(trx) != blacklist_by_id.end()) {
                      continue;
                   }
@@ -1422,11 +1444,13 @@ void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<
 
 bool producer_plugin_impl::maybe_produce_block() {
    auto reschedule = fc::make_scoped_exit([this]{
+      // 完成之后会回调schedule_production_loop 来继续出下一个块
       schedule_production_loop();
    });
 
    try {
       try {
+         // 完成出块并广播
          produce_block();
          return true;
       } catch ( const guard_exception& e ) {
@@ -1439,6 +1463,7 @@ bool producer_plugin_impl::maybe_produce_block() {
    }
 
    fc_dlog(_log, "Aborting block due to produce_block error");
+   // 清理缓存块的状态
    chain::controller& chain = app().get_plugin<chain_plugin>().chain();
    chain.abort_block();
    return false;
@@ -1461,6 +1486,8 @@ static auto maybe_make_debug_time_logger() -> fc::optional<decltype(make_debug_t
 
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
+
+   // 确定一定是出块状态才能调用到这里
    EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = app().get_plugin<chain_plugin>().chain();
    const auto& pbs = chain.pending_block_state();
@@ -1471,12 +1498,17 @@ void producer_plugin_impl::produce_block() {
    EOS_ASSERT(signature_provider_itr != _signature_providers.end(), producer_priv_key_not_found, "Attempting to produce a block for which we don't have the private key");
 
    //idump( (fc::time_point::now() - chain.pending_block_time()) );
+
+   // 完成出块
    chain.finalize_block();
+
+   // 签名区块
    chain.sign_block( [&]( const digest_type& d ) {
       auto debug_logger = maybe_make_debug_time_logger();
       return signature_provider_itr->second(d);
    } );
 
+   // 把完成的区块广播出去,并调用其他系统的handle函数
    chain.commit_block();
    auto hbt = chain.head_block_time();
    //idump((fc::time_point::now() - hbt));
