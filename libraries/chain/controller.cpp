@@ -668,11 +668,14 @@ struct controller_impl {
     * @post regardless of the success of commit block there is no active pending block
     */
    void commit_block( bool add_to_fork_db ) {
+
+      // 这一步是最后一步了,执行完成之后会清理待发送的区块信息
       auto reset_pending_on_exit = fc::make_scoped_exit([this]{
          pending.reset();
       });
 
       try {
+         // 如果是自己出的块,会默认接受
          if (add_to_fork_db) {
             pending->_pending_block_state->validated = true;
             auto new_bsp = fork_db.add(pending->_pending_block_state);
@@ -681,6 +684,7 @@ struct controller_impl {
             EOS_ASSERT(new_bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
          }
 
+         // 如果是回放 则直接写入reversible_blocks中
          if( !replaying ) {
             reversible_blocks.create<reversible_block_object>( [&]( auto& ubo ) {
                ubo.blocknum = pending->_pending_block_state->block_num;
@@ -688,6 +692,7 @@ struct controller_impl {
             });
          }
 
+         // 触发accepted_block信号, 调用其它模块的回调
          emit( self.accepted_block, pending->_pending_block_state );
       } catch (...) {
          // dont bother resetting pending, instead abort the block
@@ -1342,15 +1347,18 @@ struct controller_impl {
       return false;
    }
 
+   // 计算所有action的hash
    void set_action_merkle() {
       vector<digest_type> action_digests;
       action_digests.reserve( pending->_actions.size() );
       for( const auto& a : pending->_actions )
          action_digests.emplace_back( a.digest() );
 
+      // 计算merkle hash值
       pending->_pending_block_state->header.action_mroot = merkle( move(action_digests) );
    }
 
+   // 计算所有交易的hash
    void set_trx_merkle() {
       vector<digest_type> trx_digests;
       const auto& trxs = pending->_pending_block_state->block->transactions;
