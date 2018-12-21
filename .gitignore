@@ -5,10 +5,12 @@
 *.bc
 *.wast
 *.wast.hpp
-*.wasm
+# 注释于20181221解决编译不通过原因
+# *.wasm
 *.s
 *.dot
-*.abi.hpp
+# 注释于20181221解决编译不通过原因
+# *.abi.hpp
 # *.cmake
 CMakeModules/!*.cmake
 contracts/*.cmake

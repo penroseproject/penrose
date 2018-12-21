@@ -25,11 +25,8 @@
 
 #include <config.hpp>
 
-// @UPDATE AT 20181221
-// #include <deep_nested.abi.hpp>
-// #include <large_nested.abi.hpp>
-// #include <deep_nested.abi.hpp>
-// #include <large_nested.abi.hpp>
+#include <deep_nested.abi.hpp>
+#include <large_nested.abi.hpp>
 
 using namespace eosio;
 using namespace chain;
@@ -3503,33 +3500,30 @@ BOOST_AUTO_TEST_CASE(abi_recursive_structs)
 // Infinite recursion of abi_serializer in struct definitions
 BOOST_AUTO_TEST_CASE(abi_very_deep_structs)
 {
-   // @UPDATE AT 20181221
-   // try {
-   //    abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), max_serialization_time );
-   //    string hi_data = "{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":0}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}";
-   //    BOOST_CHECK_THROW( abis.variant_to_binary( "s98", fc::json::from_string( hi_data ), max_serialization_time ), fc::exception );
-   // } FC_LOG_AND_RETHROW()
+   try {
+      abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), max_serialization_time );
+      string hi_data = "{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":0}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}";
+      BOOST_CHECK_THROW( abis.variant_to_binary( "s98", fc::json::from_string( hi_data ), max_serialization_time ), fc::exception );
+   } FC_LOG_AND_RETHROW()
 }
 
 // Infinite recursion of abi_serializer in struct definitions
 BOOST_AUTO_TEST_CASE(abi_very_deep_structs_1ms)
 {
-  // @UPDATE AT 20181221
-   // try {
-   //    BOOST_CHECK_THROW(
-   //          abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), fc::microseconds( 1 ) ),
-   //          fc::exception );
-   // } FC_LOG_AND_RETHROW()
+   try {
+      BOOST_CHECK_THROW(
+            abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), fc::microseconds( 1 ) ),
+            fc::exception );
+   } FC_LOG_AND_RETHROW()
 }
 
 BOOST_AUTO_TEST_CASE(abi_deep_structs_validate)
 {
-  // @UPDATE AT 20181221
-   // try {
-   //    BOOST_CHECK_THROW(
-   //          abi_serializer abis( fc::json::from_string( deep_nested_abi ).as<abi_def>(), max_serialization_time ),
-   //          fc::exception );
-   // } FC_LOG_AND_RETHROW()
+   try {
+      BOOST_CHECK_THROW(
+            abi_serializer abis( fc::json::from_string( deep_nested_abi ).as<abi_def>(), max_serialization_time ),
+            fc::exception );
+   } FC_LOG_AND_RETHROW()
 }
 
 BOOST_AUTO_TEST_CASE(variants)
