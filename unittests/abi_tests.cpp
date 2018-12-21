@@ -26,7 +26,7 @@
 #include <config.hpp>
 
 // 2018-12-21 fix error fatal error: 'deep_nested.abi.hpp' file not found #include <deep_nested.abi.hpp>
-#include <large_nested.abi.hpp>
+// 2018-12-21 fix error fatal error: 'large_nested.abi.hpp' file not found #include <large_nested.abi.hpp>
 
 using namespace eosio;
 using namespace chain;
