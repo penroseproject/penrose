@@ -1,10 +1,10 @@
-###下载源码
+#### 下载源码
 
 	$ git clone https://github.com/penroseproject/penrose.git
 	$ cd penrose
 	$ git submodule update --init --recursive
 
-###编译源码
+#### 编译源码
 
 	$ ./eosio_build.sh
 	$ sudo ./eosio_install.sh
