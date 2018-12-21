@@ -80,7 +80,7 @@
 #include<iomanip>
 #include<ios>
 #include<iosfwd>
-#include<iostream>
+// 2018-12-21 fix error "iostreams currently clash with eosio::datastream" #include<iostream>
 #include<istream>
 #include<iterator>
 #include<limits>
