@@ -25,8 +25,11 @@
 
 #include <config.hpp>
 
-// 2018-12-21 fix error fatal error: 'deep_nested.abi.hpp' file not found #include <deep_nested.abi.hpp>
-// 2018-12-21 fix error fatal error: 'large_nested.abi.hpp' file not found #include <large_nested.abi.hpp>
+// update at 20181221
+// #include <deep_nested.abi.hpp>
+// #include <large_nested.abi.hpp>
+#include <./contracts/deep_nested.abi.hpp>
+#include <./contracts/large_nested.abi.hpp>
 
 using namespace eosio;
 using namespace chain;
@@ -3501,7 +3504,7 @@ BOOST_AUTO_TEST_CASE(abi_recursive_structs)
 BOOST_AUTO_TEST_CASE(abi_very_deep_structs)
 {
    try {
-      abi_serializer abis( fc::json::from_string( large_nested_abi ).template as<abi_def>(), max_serialization_time );
+      abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), max_serialization_time );
       string hi_data = "{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":{\"f1\":0}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}";
       BOOST_CHECK_THROW( abis.variant_to_binary( "s98", fc::json::from_string( hi_data ), max_serialization_time ), fc::exception );
    } FC_LOG_AND_RETHROW()
@@ -3512,7 +3515,7 @@ BOOST_AUTO_TEST_CASE(abi_very_deep_structs_1ms)
 {
    try {
       BOOST_CHECK_THROW(
-            abi_serializer abis( fc::json::from_string( large_nested_abi ).template as<abi_def>(), fc::microseconds( 1 ) ),
+            abi_serializer abis( fc::json::from_string( large_nested_abi ).as<abi_def>(), fc::microseconds( 1 ) ),
             fc::exception );
    } FC_LOG_AND_RETHROW()
 }
@@ -3521,7 +3524,7 @@ BOOST_AUTO_TEST_CASE(abi_deep_structs_validate)
 {
    try {
       BOOST_CHECK_THROW(
-            abi_serializer abis( fc::json::from_string( deep_nested_abi ).template as<abi_def>(), max_serialization_time ),
+            abi_serializer abis( fc::json::from_string( deep_nested_abi ).as<abi_def>(), max_serialization_time ),
             fc::exception );
    } FC_LOG_AND_RETHROW()
 }
