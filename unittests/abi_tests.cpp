@@ -25,11 +25,11 @@
 
 #include <config.hpp>
 
-// update at 20181221
+// @UPDATE AT 20181221
 // #include <deep_nested.abi.hpp>
 // #include <large_nested.abi.hpp>
-#include <contracts/deep_nested.abi.hpp>
-#include <contracts/large_nested.abi.hpp>
+#include <deep_nested.abi.hpp>
+#include <large_nested.abi.hpp>
 
 using namespace eosio;
 using namespace chain;
