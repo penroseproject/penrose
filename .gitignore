@@ -9,7 +9,9 @@
 *.s
 *.dot
 *.abi.hpp
-*.cmake
+# *.cmake
+CMakeModules/!*.cmake
+contracts/*.cmake
 *.ninja
 \#*
 \.#*
